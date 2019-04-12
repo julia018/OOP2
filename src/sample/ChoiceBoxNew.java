@@ -8,7 +8,12 @@ public class ChoiceBoxNew extends ChoiceBox implements Control{
 
     public ChoiceBoxNew(ObservableList items, String type, Object o) {
         super(items);
-        super.getSelectionModel().select(o);
+        if (o == null) {
+            super.getSelectionModel().select(0);
+        }
+        else {
+            super.getSelectionModel().select(o);
+        }
         this.type = type;
     }
 

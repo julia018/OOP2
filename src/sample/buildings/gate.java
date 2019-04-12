@@ -3,6 +3,7 @@ package sample.buildings;
 import sample.Composition;
 import sample.RusName;
 
+@RusName(r_name = "Ворота")
 public class gate extends Composition {
 
     @RusName(r_name = "Высота")
