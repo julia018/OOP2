@@ -1,25 +1,29 @@
 package sample;
 
 import javafx.scene.control.Label;
+import sample.buildings.sport_fac;
 
 public class LabelNew extends Label implements Control {
-    private Class  cl;
-    private Composition obj;
+    private Class cl;
+    private Object obj;
     private String type;
 
-    public Composition getObj() {
+    public Object getObj() {
         return obj;
     }
 
-    public void setObj(Composition obj) {
+    @Override
+    public void setObj(Object obj) {
+        cl.cast(obj);
         this.obj = obj;
     }
 
 
 
-    public Class getCl() {
+    public Class<? extends sport_fac> getCl() {
         return cl;
     }
+
 
     public void setCl(Class cl) {
         this.cl = cl;

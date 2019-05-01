@@ -4,7 +4,7 @@ import sample.Composition;
 import sample.RusName;
 
 @RusName(r_name = "Ворота")
-public class gate extends Composition {
+public class gate implements Composition {
 
     @RusName(r_name = "Высота")
     private float height;
@@ -19,7 +19,6 @@ public class gate extends Composition {
         return height;
     }
 
-    @RusName(r_name = "УстВысота")
     public void setheight(String height) {
         this.height = Float.parseFloat(height);
     }
@@ -28,7 +27,6 @@ public class gate extends Composition {
         return width;
     }
 
-    @RusName(r_name = "УстШирина")
     public void setwidth(String width) {
         this.width = Float.parseFloat(width);
     }
@@ -37,7 +35,6 @@ public class gate extends Composition {
         return mobility;
     }
 
-    @RusName(r_name = "УстПодвижность")
     public void setmobility(Boolean mobility) {
         this.mobility = mobility;
     }

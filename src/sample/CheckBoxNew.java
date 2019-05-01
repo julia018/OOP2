@@ -21,4 +21,19 @@ public class CheckBoxNew extends CheckBox implements Control {
     public String getType() {
         return type;
     }
+
+    @Override
+    public Object getObj() {
+        return null;
+    }
+
+    @Override
+    public Class getCl() {
+        return null;
+    }
+
+    @Override
+    public void setObj(Object Obj) {
+
+    }
 }

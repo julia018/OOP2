@@ -30,7 +30,6 @@ public abstract class sport_fac {
         return name;
     }
 
-    @RusName(r_name = "УстНазвание")
     public void setname(String name) {
         this.name = name;
     }
@@ -39,7 +38,6 @@ public abstract class sport_fac {
         return location;
     }
 
-    @RusName(r_name = "УстРасположение")
     public void setlocation(String location) {
         this.location = location;
     }
@@ -48,7 +46,6 @@ public abstract class sport_fac {
         return capacity;
     }
 
-    @RusName(r_name = "УстВместимость")
     public void setcapacity(String capacity) {
         this.capacity = Integer.parseInt(capacity);
     }
@@ -57,7 +54,6 @@ public abstract class sport_fac {
         return fl_amount;
     }
 
-    @RusName(r_name = "УстКол-во этажей")
     public void setfl_amount(String fl_amount) {
         this.fl_amount = Integer.parseInt(fl_amount);
     }
@@ -66,15 +62,9 @@ public abstract class sport_fac {
         return this.light_type.toString();
     }
 
-    @RusName(r_name = "УстОсвещение")
     public void setlight_type(String l_t) {
-        if (l_t.equals("Искусственное")) {
-            this.light_type = light.synthetic;
-        }
-        else {
-            this.light_type =  light.natural;
-        }
+        this.light_type = light.valueOf(l_t);
     }
 
-
+    public abstract void deleteObject();
 }

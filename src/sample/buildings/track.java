@@ -4,30 +4,17 @@ import sample.Composition;
 import sample.RusName;
 
 @RusName(r_name = "Сектор трека")
-public class track extends Composition {
+public class track implements Composition {
 
-    @RusName(r_name = "УстКоличество дорожек")
+
     public void setamount(String am) {
-        switch (am) {
-            case "менее 2-ух":
-                this.amount = track_am.less2;
-                break;
-            case "от 2-ух до 5-ти":
-                this.amount = track_am.two_five;
-                break;
-            case "более 5-ти":
-                this.amount = track_am.greater_five;
-                break;
-            default:
-                System.out.println("Problems!!!");
-        }
+        this.amount = track_am.valueOf(am);
     }
 
     public String getamount() {
         return amount.toString();
     }
 
-    @RusName(r_name = "УстПротяженность дорожки")
     public void settr_length(String len) {
         this.tr_length = Float.parseFloat(len);
     }

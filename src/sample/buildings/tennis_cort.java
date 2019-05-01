@@ -9,13 +9,17 @@ public class tennis_cort extends sport_fac {
         return checker;
     }
 
-    @RusName(r_name = "УстДатчик касания сетки")
     public void setchecker(Boolean dividers) {
         this.checker = dividers;
     }
 
     @RusName(r_name = "Датчик касания сетки")
     private Boolean checker;
+
+    @Override
+    public void deleteObject() {
+
+    }
 
     private enum covering {
         @RusName(r_name = "Хард")
@@ -32,22 +36,11 @@ public class tennis_cort extends sport_fac {
         return cover.toString();
     }
 
-    @RusName(r_name = "УстПокрытие")
     public void setcover(String cov) {
-        switch (cov) {
-            case "Хард": this.cover = covering.hard;
-                break;
-            case "Грунт": this.cover = covering.grount;
-                break;
-            case "Трава": this.cover = covering.grass;
-                break;
-            case "Паркет": this.cover = covering.parket;
-                break;
-            default: System.out.println("Problems!!!");
-
-        }
+        this.cover = covering.valueOf(cov);
     }
 
     @RusName(r_name = "Покрытие")
     private covering cover;
+
 }

@@ -5,39 +5,34 @@ import sample.RusName;
 @RusName(r_name = "Легкоатлетический стадион")
 public class athlete_stadium extends sport_fac {
 
-    public String getteam() {
-        return team;
-    }
-    @RusName(r_name = "УстКоманда")
-    public void setteam(String team) {
-        this.team = team;
+    @RusName(r_name = "Сектор трека")
+    private track track_sector;
+
+    @RusName(r_name = "Вираж с ямой для воды")
+    private Boolean pit;
+
+    public Boolean getpit() {
+        return this.pit;
     }
 
-    @RusName(r_name = "Команда")
-    private String team;
-
+    public void setpit(Boolean pit) {
+        this.pit = pit;
+    }
 
     public track gettrack_sector() {
         return track_sector;
     }
 
-    @RusName(r_name = "УстСектор трека")
+
     public void settrack_sector(track track_sector) {
         this.track_sector = track_sector;
     }
 
-    @RusName(r_name = "Сектор трека")
-    private track track_sector;
 
-    @RusName(r_name = "Ворота")
-    private gate pl_gate;
-
-    public gate getpl_gate() {
-        return pl_gate;
+    @Override
+    public void deleteObject() {
+        settrack_sector(null);
     }
 
-    @RusName(r_name = "УстВорота")
-    public void setpl_gate(gate pl_gate) {
-        this.pl_gate = pl_gate;
-    }
+
 }

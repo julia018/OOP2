@@ -14,7 +14,7 @@ public abstract class shoot_range extends sport_fac{
         return rpos_amount;
     }
 
-    @RusName(r_name = "УстКоличество стрелковых позиций")
+
     public void setrpos_amount(String rpos_amount) {
         this.rpos_amount = Integer.parseInt(rpos_amount);
     }
@@ -23,7 +23,6 @@ public abstract class shoot_range extends sport_fac{
         return this.learn_targets;
     }
 
-    @RusName(r_name = "УстНаличие учебных мишеней")
     public void setlearn_targets(Boolean learn_targets) {
         this.learn_targets = learn_targets;
     }

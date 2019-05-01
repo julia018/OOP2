@@ -15,7 +15,6 @@ public class laser_shoot extends shoot_range {
         return project_type;
     }
 
-    @RusName(r_name = "УстТип проектора")
     public void setproject_type(String project_type) {
         this.project_type = project_type;
     }
@@ -24,11 +23,14 @@ public class laser_shoot extends shoot_range {
         return projscr_amount;
     }
 
-    @RusName(r_name = "УстКол-во проекционых экранов")
     public void setprojscr_amount(String projscr_amount) {
         this.projscr_amount = Integer.parseInt(projscr_amount);
     }
 
+    @Override
+    public void deleteObject() {
+
     }
+}
 
 

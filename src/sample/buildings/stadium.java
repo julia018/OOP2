@@ -14,7 +14,6 @@ public abstract class stadium extends sport_fac{
         return vip;
     }
 
-    @RusName(r_name = "УстНаличие VIP-зоны")
     public void setvip(Boolean vip) {
         this.vip = vip;
     }
@@ -24,8 +23,9 @@ public abstract class stadium extends sport_fac{
         return parking;
     }
 
-    @RusName(r_name = "УстВместительность парковки")
     public void setparking(String parking) {
         this.parking = Integer.parseInt(parking);
     }
+
+
 }

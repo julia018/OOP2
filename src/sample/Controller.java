@@ -1,4 +1,5 @@
 package sample;
+
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -15,21 +16,37 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.Window;
+import sample.Serialization.BinarySerializer;
 import sample.buildings.*;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.ObjectInputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 
-
 public class Controller {
-    HashMap<String, String> types_map;
+    private HashMap<String, String> types_map;
     private ObservableList<Obj> obj_list = FXCollections.observableArrayList();
-    private final String PACK = "sample.buildings.";
+    private static final String PACK = "sample.buildings.";
+    private static final int WIDTH = 400;
+    private static final int HEIGHT = 700;
+    private final int TOP = 10;
+    private final int RIGHT = 10;
+    private final int BOTTOM = 10;
+    private final int LEFT = 10;
+    private final int SPACING = 5;
+    private final int BUTTONSPACING = 25;
 
     @FXML
     private ComboBox<String> cmb_class;
@@ -48,1038 +65,397 @@ public class Controller {
     @FXML
     private TableColumn<Obj, Void> col_actions;
 
+    @FXML
+    private Button saveButton;
 
+    @FXML
+    private Button openButton;
 
+    @FXML
+    void open(ActionEvent event) {
+        /*BinarySerializer binSerzer = new BinarySerializer();
+        obj_list.clear();
+        Path path = Paths.get("Objectsavefile.ser");
+        obj_list = binSerzer.read(path);
+        if(obj_list.isEmpty()) System.out.println("List is empty");
+        else obj_table.setItems(obj_list);*/
+        obj_list.clear();
+        FileChooser chooser = new FileChooser();
+        File file = chooser.showOpenDialog(new Stage());
+        if (file != null) {
+            try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(file))) {
+                List<Obj> loadedEdges = (List<Obj>) in.readObject() ;
+                obj_list.setAll(loadedEdges);
+            } catch (Exception exc) {
+                exc.printStackTrace();
+            }
+        }
+
+    }
+
+    @FXML
+    void save(ActionEvent event) {
+        BinarySerializer binSerzer = new BinarySerializer();
+        binSerzer.serialize(obj_list);
+    }
 
     @FXML
     void initialize() {
+
+        obj_list.addListener((ListChangeListener<Obj>) c -> obj_table.setItems(obj_list));
+
+        cmb_class.valueProperty().addListener(new ChangeListener<String>() {
+            @Override
+            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
+                if (observable.getValue() == null) {
+                    create_btn.setDisable(true);
+                } else create_btn.setDisable(false);
+            }
+        });
+
+        types_map = new HashMap<>();
+        createHashMap(types_map, cmb_class);
+
         col_obj.setCellValueFactory(new PropertyValueFactory<>("name"));
         col_class.setCellValueFactory(new PropertyValueFactory<>("class_name"));
         col_actions.setCellFactory(param -> new TableCell<Obj, Void>() {
-            private final Button viewbutton = new Button("view");
             private final Button editButton = new Button("edit");
             private final Button deleteButton = new Button("delete");
-            private final HBox pane = new HBox(viewbutton, editButton, deleteButton);
+            private final HBox pane = new HBox(editButton, deleteButton);
 
             {
-
-                pane.setSpacing(20);
-
-                viewbutton.setOnAction(event -> {
-                    try {
-                        Object my_obj = getTableView().getItems().get(getIndex()).getObject();
-                        String title = getTableView().getItems().get(getIndex()).getName();
-
-                        System.out.println(my_obj.getClass().toString());
-                        Class<? extends sport_fac> clazz = (Class<? extends sport_fac>) Class.forName(getTableView().getItems().get(getIndex()).getCl_name());
-                        System.out.println(clazz.toString());
-
-                        ArrayList<Field> result = new ArrayList<Field>();
-                        //Collections.addAll(result, clazz.getDeclaredFields());
-                        //get all fields, render
-                        Class<?> i = clazz;
-                        while (i != null && i != Object.class) {
-                            Collections.addAll(result, i.getDeclaredFields());
-                            i = i.getSuperclass();
-                        }
-                        Collections.reverse(result);
-
-
-                        VBox vb = new VBox();
-                        vb.setSpacing(5);
-                        vb.setPadding(new Insets(10, 20, 10, 10));
-
-                        Stage stage = new Stage();
-                        stage.initModality(Modality.APPLICATION_MODAL);
-                        stage.setTitle("Create");
-                        stage.sizeToScene();
-                        //create controls
-                        Button btn_OK = new Button("OK");
-                        btn_OK.setDisable(false);
-                        String name = "Безымянный";
-
-                        List<Control> rlt = new ArrayList<>();
-                        for (Field f : result) {
-                            //Текстовое поле
-                            if (f.getType() == String.class) {
-                                if (f.isAnnotationPresent(RusName.class)) {
-                                    System.out.println(f.getName());
-                                    System.out.println(clazz.toString());
-
-                                    Method get_f = clazz.getMethod("get" + f.getName());
-                                    String res = (String) get_f.invoke(my_obj);
-                                    System.out.println("Попытка уст txt = " + res);
-                                    name = f.getAnnotation(RusName.class).r_name();
-                                    Label lbl_text = new Label(name);
-                                    vb.getChildren().add(lbl_text);
-                                    TextFieldNew txt = new TextFieldNew(res, name);
-                                    rlt.add(txt);
-                                    vb.getChildren().add(txt);
-                                }
-                            }
-                            //Целочисленное поле
-                            if (f.getType() == int.class) {
-                                name = f.getAnnotation(RusName.class).r_name();
-                                Label lbl_num = new Label(name);
-                                vb.getChildren().add(lbl_num);
-                                System.out.println("Попытка уст int = ");
-                                Method get_f = clazz.getMethod("get" + f.getName());
-                                int res = (int) get_f.invoke(my_obj);
-                                name = f.getAnnotation(RusName.class).r_name();
-                                TextFieldNew txt = new TextFieldNew(Integer.toString(res), name);
-                                txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                                    try {
-                                        int x = Integer.parseInt(newValue);
-                                    } catch (NumberFormatException e) {
-                                        txt.setText(oldValue);
-                                    }
-                                });
-                                rlt.add(txt);
-                                vb.getChildren().add(txt);
-
-                            }
-                            //Вещественное поле
-                            if (f.getType() == float.class) {
-                                name = f.getAnnotation(RusName.class).r_name();
-                                Label lbl_num = new Label(name);
-                                vb.getChildren().add(lbl_num);
-                                System.out.println("Попытка уст float = ");
-                                Method get_f = clazz.getMethod("get" + f.getName());
-                                float res = (float) get_f.invoke(my_obj);
-
-                                TextFieldNew txt = new TextFieldNew(Float.toString(res), name);
-                                txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                                    try {
-                                        float x = Float.parseFloat(newValue);
-                                    } catch (NumberFormatException e) {
-                                        txt.setText(oldValue);
-                                    }
-                                });
-                                rlt.add(txt);
-                                vb.getChildren().add(txt);
-                            }
-                            //Перечисление(enum)
-                            if (f.getType().isEnum()) {
-                                if (f.isAnnotationPresent(RusName.class)) {
-                                    name = f.getAnnotation(RusName.class).r_name();
-                                    Label lbl_num = new Label(name);
-                                    vb.getChildren().add(lbl_num);
-                                }
-                                System.out.println("Попытка уст enum = ");
-                                // full list of constants of enum
-                                Method get_f = clazz.getMethod("get" + f.getName());
-                                String res = (String) get_f.invoke(my_obj);
-
-                                ArrayList<Field> en_flds = new ArrayList<>();
-                                Collections.addAll(en_flds, f.getType().getFields());
-                                // list of fields-constants declared annotations
-                                ArrayList<String> arr = new ArrayList<>();
-                                Object il = null;
-                                for (Field fld : en_flds) {
-                                    arr.add(fld.getAnnotation(RusName.class).r_name());
-                                    if (fld.getName().equals(res)) il = fld.getAnnotation(RusName.class).r_name();
-                                }
-
-                                ChoiceBoxNew chBox = new ChoiceBoxNew(FXCollections.observableArrayList(arr), name, il);
-                                rlt.add(chBox);
-                                vb.getChildren().add(chBox);
-                            }
-                            //Объект(композиция)
-                            if (f.getType().getSuperclass() == Composition.class) {
-                                Separator sp1 = new Separator(Orientation.HORIZONTAL);
-                                vb.getChildren().add(sp1);
-                                ArrayList<Field> comp_fields = new ArrayList<>();
-                                Collections.addAll(comp_fields, f.getType().getDeclaredFields());
-                                System.out.println(comp_fields);
-                                name = f.getAnnotation(RusName.class).r_name();
-                                LabelNew lbl_num = new LabelNew(name, f.getType(), f.getName());
-                                HBox hb = new HBox();
-                                hb.setAlignment(Pos.CENTER);
-                                hb.getChildren().add(lbl_num);
-                                vb.getChildren().add(hb);
-
-                                //get object
-                                Class<?> comp_cl = f.getType();
-                                System.out.println("? object in comp for " + clazz.toString() + f.getName());
-                                Method get_comp = clazz.getMethod("get" + f.getName());//?? YET
-                                Object res = get_comp.invoke(my_obj);//get comp obj-> res
-                                if (res != null) System.out.println("Here is  object in comp");
-                                comp_cl.cast(res);
-                                System.out.println(comp_fields);
-                                for (Field fl : comp_fields) {
-                                    //Текстовое поле
-                                    if (fl.getType() == String.class) {
-                                        System.out.println("Попытка уст str = ");
-                                        if (fl.isAnnotationPresent(RusName.class)) {
-
-                                            Method get_f = comp_cl.getMethod("get" + fl.getName());
-                                            String resultt = (String) get_f.invoke(res);
-                                            System.out.println("Поле обкта в композиции " + fl.getName() + "= " + resultt);
-                                            name = fl.getAnnotation(RusName.class).r_name();
-                                            Label lbl_text = new Label(name);
-                                            vb.getChildren().add(lbl_text);
-                                            TextFieldNew txt = new TextFieldNew(resultt, name);
-                                            rlt.add(txt);
-                                            vb.getChildren().add(txt);
-                                        }
-                                    }
-                                    //Целочисленное поле
-                                    if (fl.getType() == int.class) {
-                                        System.out.println("Попытка уст int = ");
-                                        name = fl.getAnnotation(RusName.class).r_name();
-                                        Label lbl_n = new Label(name);
-                                        vb.getChildren().add(lbl_n);
-                                        Method get_f = comp_cl.getMethod("get" + fl.getName());
-                                        int rest = (int) get_f.invoke(res);
-                                        TextFieldNew txt = new TextFieldNew(Integer.toString(rest), name);
-                                        txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                                            try {
-                                                int z = Integer.parseInt(newValue);
-                                            } catch (NumberFormatException e) {
-                                                txt.setText(oldValue);
-                                            }
-                                        });
-                                        rlt.add(txt);
-                                        vb.getChildren().add(txt);
-
-                                    }
-                                    //Вещественное поле
-                                    if (fl.getType() == float.class) {
-                                        System.out.println("Попытка уст float = ");
-                                        name = fl.getAnnotation(RusName.class).r_name();
-                                        Label lbl_n = new Label(name);
-                                        vb.getChildren().add(lbl_n);
-                                        Method get_f = comp_cl.getMethod("get" + fl.getName());
-                                        float rest = (float) get_f.invoke(res);
-                                        TextFieldNew txt = new TextFieldNew(Float.toString(rest), name);
-                                        txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                                            try {
-                                                float x = Float.parseFloat(newValue);
-                                            } catch (NumberFormatException e) {
-                                                txt.setText(oldValue);
-                                            }
-                                        });
-                                        rlt.add(txt);
-                                        vb.getChildren().add(txt);
-                                    }
-                                    //Перечисление(enum)
-                                    if (fl.getType().isEnum()) {
-                                        if (fl.isAnnotationPresent(RusName.class)) {
-                                            name = fl.getAnnotation(RusName.class).r_name();
-                                            Label lbl_numm = new Label(name);
-                                            vb.getChildren().add(lbl_numm);
-                                        }
-                                        // full list of constants of enum
-                                        Method get_f = comp_cl.getMethod("get" + fl.getName());
-                                        String resl = (String) get_f.invoke(res);
-
-                                        ArrayList<Field> en_flds = new ArrayList<>();
-                                        Collections.addAll(en_flds, fl.getType().getFields());
-
-                                        System.out.println("Попытка уст ch_b = ");
-
-                                        // list of fields-constants declared annotations
-                                        ArrayList<String> arr = new ArrayList<>();
-                                        Object ill = null;
-                                        for (Field fld : en_flds) {
-                                            arr.add(fld.getAnnotation(RusName.class).r_name());
-                                            if (fld.getName().equals(resl))
-                                                ill = fld.getAnnotation(RusName.class).r_name();
-                                        }
-                                        ChoiceBoxNew chBox = new ChoiceBoxNew(FXCollections.observableArrayList(arr), name, ill);
-
-                                        rlt.add(chBox);
-                                        vb.getChildren().add(chBox);
-                                    }
-
-                                    //Выбор(логическое поле)
-                                    if ((fl.getType() == Boolean.class)) {
-                                        if (fl.isAnnotationPresent(RusName.class)) {
-                                            System.out.println("Попытка уст bool = ");
-                                            name = fl.getAnnotation(RusName.class).r_name();
-                                            Method get_f = comp_cl.getMethod("get" + fl.getName());
-                                            Boolean rest = (Boolean) get_f.invoke(res);
-                                            CheckBoxNew ch_b = new CheckBoxNew(name, name, rest.booleanValue());
-                                            vb.getChildren().add(ch_b);
-                                            rlt.add(ch_b);
-                                        }
-
-                                    }
-                                }
-                                Separator sp2 = new Separator(Orientation.HORIZONTAL);
-                                vb.getChildren().add(sp2);
-                                rlt.add(lbl_num);
-
-                            }
-                            //Выбор(логическое поле)
-                            if ((f.getType() == Boolean.class)) {
-                                if (f.isAnnotationPresent(RusName.class)) {
-                                    name = f.getAnnotation(RusName.class).r_name();
-                                    System.out.println(clazz.toString());
-                                    Method get_f = clazz.getMethod("get" + f.getName());
-                                    System.out.println("Попытка уст bool = ");
-                                    Boolean res = (Boolean) get_f.invoke(my_obj);
-                                    if (res == null) {
-                                        System.out.println("not value for bool ");
-                                    }
-                                    CheckBoxNew ch_b = new CheckBoxNew(name, name, res.booleanValue());
-                                    rlt.add(ch_b);
-                                    vb.getChildren().add(ch_b);
-                                }
-
-                            }
-                            System.out.println(f);
-                        }
-
-                        btn_OK.setOnAction(new EventHandler<ActionEvent>() {
-                            @Override
-                            public void handle(ActionEvent e) {
-                                stage.close();
-                            }
-
-                        });
-                        HBox hb = new HBox();
-                        hb.setAlignment(Pos.CENTER);
-                        hb.getChildren().add(btn_OK);
-                        vb.getChildren().add(hb);
-                        stage.setScene(new Scene(vb, 400, 700));
-                        stage.setTitle(title);
-                        stage.show();
-
-
-                    } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-                        e.printStackTrace();
-                    }
-
-                });
-
+                pane.setSpacing(BUTTONSPACING);
 
                 deleteButton.setOnAction(event -> {
-                    Obj del_obj = getTableView().getItems().get(getIndex());
-                    del_obj.setObject(null);
-                    obj_list.remove(del_obj);
-                    System.out.println("Del");
+                    Obj deletedObj = getTableView().getItems().get(getIndex());
+                    deletedObj.deleteObject();
+                    obj_list.remove(deletedObj);
                 });
 
                 editButton.setOnAction(event -> {
                     try {
                         Object my_obj = getTableView().getItems().get(getIndex()).getObject();
                         String title = getTableView().getItems().get(getIndex()).getName();
-                        System.out.println(my_obj.getClass().toString());
-                        Class<? extends sport_fac> clazz = (Class<? extends sport_fac>) Class.forName(getTableView().getItems().get(getIndex()).getCl_name());
-                        System.out.println(clazz.toString());
-
-                        ArrayList<Field> result = new ArrayList<Field>();
-                        //Collections.addAll(result, clazz.getDeclaredFields());
-                        //get all fields, render
-                        Class<?> i = clazz;
+                        Class clazz = getTableView().getItems().get(getIndex()).getCl_name();
+                        ArrayList<Field> fieldList = new ArrayList<>();
+                        Class i = clazz;
                         while (i != null && i != Object.class) {
-                            Collections.addAll(result, i.getDeclaredFields());
+                            Collections.addAll(fieldList, i.getDeclaredFields());
                             i = i.getSuperclass();
                         }
-                        Collections.reverse(result);
-
+                        Collections.reverse(fieldList);
 
                         VBox vb = new VBox();
-                        vb.setSpacing(5);
-                        vb.setPadding(new Insets(10,20, 10,10));
+                        vb.setSpacing(SPACING);
+                        vb.setPadding(new Insets(TOP, RIGHT, BOTTOM, LEFT));
 
                         Stage stage = new Stage();
                         stage.initModality(Modality.APPLICATION_MODAL);
-                        stage.setTitle("Create");
+                        stage.setTitle(title);
                         stage.sizeToScene();
-                        //create controls
-                        Button btn_OK = new Button("OK");
-                        btn_OK.setDisable(false);
-                        String name = "Безымянный";
 
-                        List<Control> rlt = new ArrayList<>();
-                        for(Field f : result){
-                            //Текстовое поле
-                            if (f.getType() == String.class) {
-                                if(f.isAnnotationPresent(RusName.class)) {
-                                    System.out.println(f.getName());
-                                    System.out.println(clazz.toString());
+                        List<Control> controlList = new ArrayList<>();
+                        generateControls(vb, controlList, fieldList, my_obj, clazz);
 
-                                    Method get_f = clazz.getMethod("get"+f.getName());
-                                    String res = (String)get_f.invoke(my_obj);
-                                    System.out.println("Попытка уст txt = "+ res);
-                                    name = f.getAnnotation(RusName.class).r_name();
-                                    Label lbl_text = new Label(name);
-                                    vb.getChildren().add(lbl_text);
-                                    TextFieldNew txt = new TextFieldNew(res, name);
-                                    rlt.add(txt);
-                                    vb.getChildren().add(txt);
-                                }
-                            }
-                            //Целочисленное поле
-                            if (f.getType() == int.class) {
-                                name = f.getAnnotation(RusName.class).r_name();
-                                Label lbl_num = new Label(name);
-                                vb.getChildren().add(lbl_num);
-                                System.out.println("Попытка уст int = ");
-                                Method get_f = clazz.getMethod("get"+f.getName());
-                                int res = (int)get_f.invoke(my_obj);
-                                name = f.getAnnotation(RusName.class).r_name();
-                                TextFieldNew txt = new TextFieldNew(Integer.toString(res), name);
-                                txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                                    try {
-                                        int x = Integer.parseInt(newValue);
-                                    } catch (NumberFormatException e) {
-                                        txt.setText(oldValue);
-                                    }
-                                });
-                                rlt.add(txt);
-                                vb.getChildren().add(txt);
-
-                            }
-                            //Вещественное поле
-                            if (f.getType() == float.class) {
-                                name = f.getAnnotation(RusName.class).r_name();
-                                Label lbl_num = new Label(name);
-                                vb.getChildren().add(lbl_num);
-                                System.out.println("Попытка уст float = ");
-                                Method get_f = clazz.getMethod("get"+f.getName());
-                                float res = (float)get_f.invoke(my_obj);
-
-                                TextFieldNew txt = new TextFieldNew(Float.toString(res), name);
-                                txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                                    try {
-                                        float x = Float.parseFloat(newValue);
-                                    } catch (NumberFormatException e) {
-                                        txt.setText(oldValue);
-                                    }
-                                });
-                                rlt.add(txt);
-                                vb.getChildren().add(txt);
-                            }
-                            //Перечисление(enum)
-                            if (f.getType().isEnum()) {
-                                if(f.isAnnotationPresent(RusName.class)) {
-                                    name = f.getAnnotation(RusName.class).r_name();
-                                    Label lbl_num = new Label(name);
-                                    vb.getChildren().add(lbl_num);
-                                }
-                                System.out.println("Попытка уст enum = ");
-                                // full list of constants of enum
-                                Method get_f = clazz.getMethod("get"+f.getName());
-                                String res = (String)get_f.invoke(my_obj);
-
-                                ArrayList<Field> en_flds = new ArrayList<>();
-                                Collections.addAll(en_flds, f.getType().getFields());
-                                // list of fields-constants declared annotations
-                                ArrayList<String> arr = new ArrayList<>();
-                                Object il = null;
-                                for(Field fld : en_flds){
-                                    arr.add(fld.getAnnotation(RusName.class).r_name());
-                                    if (fld.getName().equals(res)) il = fld.getAnnotation(RusName.class).r_name();
-                                }
-
-                                ChoiceBoxNew chBox = new ChoiceBoxNew(FXCollections.observableArrayList(arr),name, il);
-                                rlt.add(chBox);
-                                vb.getChildren().add(chBox);
-                            }
-                            //Объект(композиция)
-                            if (f.getType().getSuperclass() == Composition.class) {
-                                Separator sp1 = new Separator(Orientation.HORIZONTAL);
-                                vb.getChildren().add(sp1);
-                                ArrayList<Field> comp_fields = new ArrayList<>();
-                                Collections.addAll(comp_fields, f.getType().getDeclaredFields());
-                                System.out.println(comp_fields);
-                                name = f.getAnnotation(RusName.class).r_name();
-                                LabelNew lbl_num = new LabelNew(name, f.getType(), f.getName());
-                                HBox hb = new HBox();
-                                hb.setAlignment(Pos.CENTER);
-                                hb.getChildren().add(lbl_num);
-                                vb.getChildren().add(hb);
-
-                                //get object
-                                Class<?> comp_cl = f.getType();
-                                System.out.println("? object in comp for "+ clazz.toString() + f.getName());
-                                Method get_comp = clazz.getMethod("get"+f.getName());//?? YET
-                                Object res = get_comp.invoke(my_obj);//get comp obj-> res
-                                if (res != null) System.out.println("Here is  object in comp");
-                                comp_cl.cast(res);
-                                System.out.println(comp_fields);
-                                for (Field fl : comp_fields) {
-                                    //Текстовое поле
-                                    if (fl.getType() == String.class) {
-                                        System.out.println("Попытка уст str = ");
-                                        if (fl.isAnnotationPresent(RusName.class)) {
-
-                                            Method get_f = comp_cl.getMethod("get"+fl.getName());
-                                            String resultt = (String)get_f.invoke(res);
-                                            System.out.println("Поле обкта в композиции " + fl.getName() + "= "+ resultt);
-                                            name = fl.getAnnotation(RusName.class).r_name();
-                                            Label lbl_text = new Label(name);
-                                            vb.getChildren().add(lbl_text);
-                                            TextFieldNew txt = new TextFieldNew(resultt, name);
-                                            rlt.add(txt);
-                                            vb.getChildren().add(txt);
-                                        }
-                                    }
-                                    //Целочисленное поле
-                                    if (fl.getType() == int.class) {
-                                        System.out.println("Попытка уст int = ");
-                                        name = fl.getAnnotation(RusName.class).r_name();
-                                        Label lbl_n = new Label(name);
-                                        vb.getChildren().add(lbl_n);
-                                        Method get_f = comp_cl.getMethod("get"+fl.getName());
-                                        int rest = (int)get_f.invoke(res);
-                                        TextFieldNew txt = new TextFieldNew(Integer.toString(rest), name);
-                                        txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                                            try {
-                                                int z = Integer.parseInt(newValue);
-                                            } catch (NumberFormatException e) {
-                                                txt.setText(oldValue);
-                                            }
-                                        });
-                                        rlt.add(txt);
-                                        vb.getChildren().add(txt);
-
-                                    }
-                                    //Вещественное поле
-                                    if (fl.getType() == float.class) {
-                                        System.out.println("Попытка уст float = ");
-                                        name = fl.getAnnotation(RusName.class).r_name();
-                                        Label lbl_n = new Label(name);
-                                        vb.getChildren().add(lbl_n);
-                                        Method get_f = comp_cl.getMethod("get"+fl.getName());
-                                        float rest = (float)get_f.invoke(res);
-                                        TextFieldNew txt = new TextFieldNew(Float.toString(rest), name);
-                                        txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                                            try {
-                                                float x = Float.parseFloat(newValue);
-                                            } catch (NumberFormatException e) {
-                                                txt.setText(oldValue);
-                                            }
-                                        });
-                                        rlt.add(txt);
-                                        vb.getChildren().add(txt);
-                                    }
-                                    //Перечисление(enum)
-                                    if (fl.getType().isEnum()) {
-                                        if (fl.isAnnotationPresent(RusName.class)) {
-                                            name = fl.getAnnotation(RusName.class).r_name();
-                                            Label lbl_numm = new Label(name);
-                                            vb.getChildren().add(lbl_numm);
-                                        }
-                                        // full list of constants of enum
-                                        Method get_f = comp_cl.getMethod("get"+fl.getName());
-                                        String resl = (String)get_f.invoke(res);
-
-                                        ArrayList<Field> en_flds = new ArrayList<>();
-                                        Collections.addAll(en_flds, fl.getType().getFields());
-
-                                        System.out.println("Попытка уст ch_b = ");
-
-                                        // list of fields-constants declared annotations
-                                        ArrayList<String> arr = new ArrayList<>();
-                                        Object ill = null;
-                                        for (Field fld : en_flds) {
-                                            arr.add(fld.getAnnotation(RusName.class).r_name());
-                                            if (fld.getName().equals(resl)) ill = fld.getAnnotation(RusName.class).r_name();
-                                        }
-                                        ChoiceBoxNew chBox = new ChoiceBoxNew(FXCollections.observableArrayList(arr), name, ill);
-
-                                        rlt.add(chBox);
-                                        vb.getChildren().add(chBox);
-                                    }
-
-                                    //Выбор(логическое поле)
-                                    if ((fl.getType() == Boolean.class)) {
-                                        if (fl.isAnnotationPresent(RusName.class)) {
-                                            System.out.println("Попытка уст bool = ");
-                                            name = fl.getAnnotation(RusName.class).r_name();
-                                            Method get_f = comp_cl.getMethod("get"+fl.getName());
-                                            Boolean rest = (Boolean) get_f.invoke(res);
-                                            CheckBoxNew ch_b = new CheckBoxNew(name, name, rest.booleanValue());
-                                            vb.getChildren().add(ch_b);
-                                            rlt.add(ch_b);
-                                        }
-
-                                    }
-                                }
-                                Separator sp2 = new Separator(Orientation.HORIZONTAL);
-                                vb.getChildren().add(sp2);
-                                rlt.add(lbl_num);
-
-                            }
-                            //Выбор(логическое поле)
-                            if ((f.getType() == Boolean.class)) {
-                                if(f.isAnnotationPresent(RusName.class)) {
-                                    name = f.getAnnotation(RusName.class).r_name();
-                                    System.out.println(clazz.toString());
-                                    Method get_f = clazz.getMethod("get"+f.getName());
-                                    System.out.println("Попытка уст bool = ");
-                                    Boolean res =  (Boolean) get_f.invoke(my_obj);
-                                    if (res == null) {
-                                        System.out.println("not value for bool ");
-                                    }
-                                    CheckBoxNew ch_b = new CheckBoxNew(name, name, res.booleanValue());
-                                    rlt.add(ch_b);
-                                    vb.getChildren().add(ch_b);
-                                }
-
-                            }
-                            System.out.println(f);
-                        }
-
-                        btn_OK.setOnAction(new EventHandler<ActionEvent>() {
-                            @Override public void handle(ActionEvent e) {
+                        Button btnDone = new Button("DONE");
+                        btnDone.setOnAction(new EventHandler<ActionEvent>() {
+                            @Override
+                            public void handle(ActionEvent e) {
                                 String obj_name = "";
-                                Constructor<?> constructor = null;
                                 try {
-                                    System.out.println(clazz.toString());
-                                    ArrayList<Method> res = new ArrayList<>();
-                                    //constructor = clazz.getConstructor();
+                                    ArrayList<Method> mainMethodList = new ArrayList<>();
                                     try {
-                                        //Object instance = constructor.newInstance(); //here give data from controls
-                                        //clazz.cast(instance);
-                                        if (my_obj == null) System.out.println("Нет гл объекта");
                                         clazz.cast(my_obj);
-                                        System.out.println("Создан inst " + my_obj.getClass().toString());
-                                        //clazz.cast(instance);
-                                        Class<?> p = clazz;
+                                        Class p = clazz;
                                         while (p != null && p != Object.class) {
-                                            Collections.addAll(res, p.getDeclaredMethods());
+                                            Collections.addAll(mainMethodList, p.getDeclaredMethods());
                                             p = p.getSuperclass();
                                         }
-                                        for (Control r : rlt) {
-                                            if(r.getType().equals("Название")) obj_name = (String)r.getVal();
-                                            System.out.println(r.getClass().toString());
-                                            if(r.getClass() == LabelNew.class) { // composition
-                                                Method get_cl = r.getClass().getDeclaredMethod("getCl");
-                                                Class clazzz = (Class) get_cl.invoke(r);
-                                                constructor = clazzz.getConstructor();
-                                                Object inst = constructor.newInstance();
-                                                //Class comp_obj = (Class) get_comp.invoke(my_obj);
-                                                clazzz.cast(inst);
-                                                if(inst == null) System.out.println("cant create obj");
-                                                //инициализ-ть объект внутренний
-                                                ArrayList<Method> resul = new ArrayList<>();
-                                                Collections.addAll(resul, clazzz.getDeclaredMethods());
-                                                for (Method t : resul) {
-                                                    if (t.isAnnotationPresent(RusName.class)) {
-                                                        for (Control s : rlt) {
-                                                            System.out.println(r.getClass().toString());
-                                                            if (t.getAnnotation(RusName.class).r_name().equals("Уст" + s.getType())) {
-                                                                t.invoke(inst, s.getVal());
-                                                            }
+                                        for (Control r : controlList) {
+                                            if (r.getType().equals("name")) obj_name = (String) r.getVal();
+                                            if (r.getClass() == LabelNew.class) { // composition
+                                                Class clazzz = r.getCl();
+                                                Object comp_obj = r.getObj();
+                                                clazzz.cast(comp_obj);
+                                                ArrayList<Method> methodList = new ArrayList<>();
+                                                Collections.addAll(methodList, clazzz.getDeclaredMethods());
+                                                for (Method t : methodList) {
+                                                    for (Control s : controlList) {
+                                                        if (t.getName().equals("set" + s.getType())) {
+                                                            t.invoke(comp_obj, s.getVal());
                                                         }
                                                     }
                                                 }
-                                                Method set_obj = my_obj.getClass().getDeclaredMethod("set"+r.getType(), new Class[]{clazzz});
-                                                set_obj.invoke(my_obj, inst);
-                                                System.out.println("Устанавливаем комп-цию");
-                                                Method get_obj = my_obj.getClass().getDeclaredMethod("get"+r.getType());
-                                                if(get_obj.invoke(my_obj) != null) System.out.println("+ ref");
                                             }
                                         }
-                                        for (Method m : res) {
-                                            if (m.isAnnotationPresent(RusName.class)) {
-                                                for (Control r : rlt) {
-
-                                                    if (m.getAnnotation(RusName.class).r_name().equals("Уст" + r.getType())) {
-                                                        System.out.println("Попытка уст "+r.getType());
-                                                        System.out.println(r.getVal());
-                                                        m.invoke(my_obj, r.getVal());
-                                                        //r.setVal("Yes");
-                                                    }
+                                        for (Method m : mainMethodList) {
+                                            for (Control r : controlList) {
+                                                if (m.getName().equals("set" + r.getType())) {
+                                                    m.invoke(my_obj, r.getVal());
                                                 }
                                             }
                                         }
+                                        getTableView().getItems().get(getIndex()).setObject(null);
                                         obj_list.remove(getTableView().getItems().get(getIndex()));
-                                        obj_list.add(new Obj(obj_name, my_obj.getClass().getAnnotation(RusName.class).r_name(),my_obj, my_obj.getClass().toString()));
+                                        obj_list.add(new Obj(obj_name, my_obj.getClass().getAnnotation(RusName.class).r_name(), my_obj, my_obj.getClass()));
                                         stage.close();
-                                        //obj_list.add(new Obj(obj_name, instance.getClass().getAnnotation(RusName.class).r_name(),instance, instance.getClass().toString()));
 
                                     } catch (ClassCastException el) {
                                         System.out.println("Can't cast!");
                                     }
-
-                                    //System.out.println(instance.getClass().toString());
-                                } catch (NoSuchMethodException|InstantiationException|IllegalAccessException|InvocationTargetException l) {
-                                    l.printStackTrace();
+                                } catch (IllegalAccessException | InvocationTargetException l) {
+                                    System.out.println("Reflection exception!");
                                 }
                             }
-
                         });
+
                         HBox hb = new HBox();
                         hb.setAlignment(Pos.CENTER);
-                        hb.getChildren().add(btn_OK);
+                        hb.getChildren().add(btnDone);
                         vb.getChildren().add(hb);
                         stage.setTitle(title);
-                        stage.setScene(new Scene(vb, 400,700));
-
-
-
-                        //
+                        stage.setScene(new Scene(vb, WIDTH, HEIGHT));
                         stage.show();
-
-
-                    } catch (ClassNotFoundException|NoSuchMethodException|IllegalAccessException| InvocationTargetException e) {
-                        e.printStackTrace();
+                    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+                        System.out.println("Reflection exception!");
                     }
-
                 });
-
             }
 
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
-
                 setGraphic(empty ? null : pane);
             }
         });
-        obj_list.addListener(new ListChangeListener<Obj>() {
-            @Override
-            public void onChanged(Change<? extends Obj> c) {
-                obj_table.setItems(obj_list);
-            }
 
-        });
-
-        cmb_class.valueProperty().addListener(new ChangeListener<String>() {
-            @Override
-            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
-                if (observable.getValue()==null) {
-                    create_btn.setDisable(true);
-                }
-                else create_btn.setDisable(false);
-            }
-
-
-        });
-
-        types_map = new HashMap<>();
-        types_map.put("Лазерный тир", "laser_shoot");
-        types_map.put("Пневманический тир", "pnum_shoot");
-        types_map.put("Теннисный корт", "tennis_cort");
-        types_map.put("Бассейн", "pool");
-        types_map.put("Легкоатлетический стадион", "athlete_stadium");
-        types_map.put("Футбольный стадион", "football_stadium");
-        //ObservableList<Class<? extends sport_fac>> types = FXCollections.observableArrayList(laser_shoot.class);
-        //ObservableList<Class<? extends spo>> types = FXCollections.observableArrayList();
-        cmb_class.setItems(FXCollections.observableArrayList(types_map.keySet()));
-        cmb_class.getSelectionModel().select(0);
-
-
+        addObjects();
     }
 
 
     @FXML
     void create(ActionEvent event) {
         String selected_class = Func(types_map, cmb_class.getValue());
-        System.out.println(selected_class);
         String title = cmb_class.getValue();
         cmb_class.setValue(null);
         try {
-            Class clazz =  Class.forName(PACK + selected_class);
-            //System.out.println(clazz.toString());
-            ArrayList<Field> result = new ArrayList<Field>();
-            //Collections.addAll(result, clazz.getDeclaredFields());
-            //get all fields, render
-            Class<?> i = clazz;
+            Class clazz = Class.forName(PACK + selected_class);
+            ArrayList<Field> fieldList = new ArrayList<Field>();
+            Class i = clazz;
             while (i != null && i != Object.class) {
-                Collections.addAll(result, i.getDeclaredFields());
+                Collections.addAll(fieldList, i.getDeclaredFields());
                 i = i.getSuperclass();
             }
-            Collections.reverse(result);
-
+            Collections.reverse(fieldList);
 
             VBox vb = new VBox();
-            vb.setSpacing(5);
-            vb.setPadding(new Insets(10,20, 10,10));
+            vb.setSpacing(SPACING);
+            vb.setPadding(new Insets(TOP, RIGHT, BOTTOM, LEFT));
 
             Stage stage = new Stage();
-                stage.initModality(Modality.APPLICATION_MODAL);
-                stage.setTitle(title);
-                stage.sizeToScene();
-            //create controls
-            Button btn_OK = new Button("OK");
-            //btn_OK.setDisable(false);
-            String name = "Безымянный";
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setTitle(title);
+            stage.sizeToScene();
 
-            List<Control> rlt = new ArrayList<>();
-            for(Field f : result){
-                //Текстовое поле
-                if (f.getType() == String.class) {
-                    if(f.isAnnotationPresent(RusName.class)) {
-                        name = f.getAnnotation(RusName.class).r_name();
-                        Label lbl_text = new Label(name);
-                        vb.getChildren().add(lbl_text);
-                        TextFieldNew txt = new TextFieldNew("", name);
-                        rlt.add(txt);
-                        vb.getChildren().add(txt);
-                    }
-                }
-                //Целочисленное поле
-                if (f.getType() == int.class) {
-                    name = f.getAnnotation(RusName.class).r_name();
-                    Label lbl_num = new Label(name);
-                    vb.getChildren().add(lbl_num);
-                    TextFieldNew txt = new TextFieldNew("0", name);
-                    txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                            try {
-                                int x = Integer.parseInt(newValue);
-                            } catch (NumberFormatException e) {
-                                txt.setText(oldValue);
-                            }
-                    });
-                    rlt.add(txt);
-                    vb.getChildren().add(txt);
-
-                }
-                //Вещественное поле
-                if (f.getType() == float.class) {
-                    name = f.getAnnotation(RusName.class).r_name();
-                    Label lbl_num = new Label(name);
-                    vb.getChildren().add(lbl_num);
-                    TextFieldNew txt = new TextFieldNew("0.0", name);
-                    txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                        try {
-                            float x = Float.parseFloat(newValue);
-                        } catch (NumberFormatException e) {
-                            txt.setText(oldValue);
-                        }
-                    });
-                    rlt.add(txt);
-                    vb.getChildren().add(txt);
-                }
-                //Перечисление(enum)
-                if (f.getType().isEnum()) {
-                    System.out.println(f.getType().getEnumConstants().toString());
-                    if(f.isAnnotationPresent(RusName.class)) {
-                        name = f.getAnnotation(RusName.class).r_name();
-                        Label lbl_num = new Label(name);
-                        vb.getChildren().add(lbl_num);
-                    }
-                    // full list of constants of enum
-                    ArrayList<Field> en_flds = new ArrayList<>();
-                    Collections.addAll(en_flds, f.getType().getFields());
-
-
-                    // list of fields-constants declared annotations
-                    ArrayList<String> arr = new ArrayList<>();
-                    for(Field fld : en_flds){
-                        arr.add(fld.getAnnotation(RusName.class).r_name());
-
-                    }
-                    ChoiceBoxNew chBox = new ChoiceBoxNew(FXCollections.observableArrayList(arr),name, null);
-
-                    rlt.add(chBox);
-                    vb.getChildren().add(chBox);
-                }
-                //Объект(композиция)
-                if (f.getType().getSuperclass() == Composition.class) {
-                    System.out.println("type "+f.getType());
-                    Separator sp1 = new Separator(Orientation.HORIZONTAL);
-                    vb.getChildren().add(sp1);
-                    ArrayList<Field> comp_fields = new ArrayList<>();
-                    Collections.addAll(comp_fields, f.getType().getDeclaredFields());
-                    name = f.getAnnotation(RusName.class).r_name();
-                    LabelNew lbl_num = new LabelNew(name, f.getType(), f.getName());
-                    HBox hb = new HBox();
-                    hb.setAlignment(Pos.CENTER);
-                    hb.getChildren().add(lbl_num);
-                    vb.getChildren().add(hb);
-
-                    for (Field fl : comp_fields) {
-                        //Текстовое поле
-                        if (fl.getType() == String.class) {
-                            if (fl.isAnnotationPresent(RusName.class)) {
-                                name = fl.getAnnotation(RusName.class).r_name();
-                                Label lbl_text = new Label(name);
-                                vb.getChildren().add(lbl_text);
-                                TextFieldNew txt = new TextFieldNew("", name);
-                                rlt.add(txt);
-                                vb.getChildren().add(txt);
-                            }
-                        }
-                        //Целочисленное поле
-                        if (fl.getType() == int.class) {
-                            name = fl.getAnnotation(RusName.class).r_name();
-                            Label lbl_n = new Label(name);
-                            vb.getChildren().add(lbl_n);
-                            TextFieldNew txt = new TextFieldNew("0", name);
-                            txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                                try {
-                                    int z = Integer.parseInt(newValue);
-                                } catch (NumberFormatException e) {
-                                    txt.setText(oldValue);
-                                }
-                            });
-                            rlt.add(txt);
-                            vb.getChildren().add(txt);
-
-                        }
-                        //Вещественное поле
-                        if (fl.getType() == float.class) {
-                            name = fl.getAnnotation(RusName.class).r_name();
-                            Label lbl_n = new Label(name);
-                            vb.getChildren().add(lbl_n);
-                            TextFieldNew txt = new TextFieldNew("0.0", name);
-                            txt.textProperty().addListener((observable, oldValue, newValue) -> {
-                                try {
-                                    float x = Float.parseFloat(newValue);
-                                } catch (NumberFormatException e) {
-                                    txt.setText(oldValue);
-                                }
-                            });
-                            rlt.add(txt);
-                            vb.getChildren().add(txt);
-                        }
-                        //Перечисление(enum)
-                        if (fl.getType().isEnum()) {
-                            if (fl.isAnnotationPresent(RusName.class)) {
-                                name = fl.getAnnotation(RusName.class).r_name();
-                                Label lbl_numm = new Label(name);
-                                vb.getChildren().add(lbl_numm);
-                            }
-                            // full list of constants of enum
-                            ArrayList<Field> en_flds = new ArrayList<>();
-                            Collections.addAll(en_flds, fl.getType().getFields());
-
-
-
-                            // list of fields-constants declared annotations
-                            ArrayList<String> arr = new ArrayList<>();
-                            for (Field fld : en_flds) {
-                                arr.add(fld.getAnnotation(RusName.class).r_name());
-                            }
-                            ChoiceBoxNew chBox = new ChoiceBoxNew(FXCollections.observableArrayList(arr), name, null);
-
-                            rlt.add(chBox);
-                            vb.getChildren().add(chBox);
-                        }
-
-                        //Выбор(логическое поле)
-                        if ((fl.getType() == Boolean.class)) {
-                            if (fl.isAnnotationPresent(RusName.class)) {
-                                name = fl.getAnnotation(RusName.class).r_name();
-                                CheckBoxNew ch_b = new CheckBoxNew(name, name,false);
-                                vb.getChildren().add(ch_b);
-                                rlt.add(ch_b);
-                            }
-
-                        }
-                    }
-                        Separator sp2 = new Separator(Orientation.HORIZONTAL);
-                        vb.getChildren().add(sp2);
-                        rlt.add(lbl_num);
-
-                }
-                //Выбор(логическое поле)
-                if ((f.getType() == Boolean.class)) {
-                    if(f.isAnnotationPresent(RusName.class)) {
-                        name = f.getAnnotation(RusName.class).r_name();
-                        CheckBoxNew ch_b = new CheckBoxNew(name, name, false);
-                        vb.getChildren().add(ch_b);
-                        rlt.add(ch_b);
-                    }
-
-                }
-                System.out.println(f);
+            List<Control> controlsList = new ArrayList<>();
+            try {
+                generateControls(vb, controlsList, fieldList, null, null);
+            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+                System.out.println("Reflection exception!");
             }
 
-            btn_OK.setOnAction(new EventHandler<ActionEvent>() {
-                @Override public void handle(ActionEvent e) {
+            Button btnCreate = new Button("CREATE");
+            btnCreate.setOnAction(new EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent e) {
                     String obj_name = "";
-                    Constructor<?> constructor = null;
+                    Constructor<?> constructor;
                     try {
-                        System.out.println(clazz.toString());
-                        ArrayList<Method> res = new ArrayList<>();
+                        ArrayList<Method> methodList = new ArrayList<>();
                         constructor = clazz.getConstructor();
-                        try {
-                        Object instance = constructor.newInstance(); //here give data from controls
+                        Object instance = constructor.newInstance();
                         clazz.cast(instance);
-                        System.out.println("Создан inst " + instance.getClass().toString());
-                        //clazz.cast(instance);
-                        Class<?> p = clazz;
+                        Class p = clazz;
                         while (p != null && p != Object.class) {
-                            Collections.addAll(res, p.getDeclaredMethods());
+                            Collections.addAll(methodList, p.getDeclaredMethods());
                             p = p.getSuperclass();
                         }
-                        for (Control r : rlt) {
-                            if(r.getType().equals("Название")) {
-                                obj_name = (String)r.getVal();
+                        for (Control r : controlsList) {
+                            if (r.getType().equals("name")) {
+                                obj_name = (String) r.getVal();
                             }
-                            System.out.println(r.getClass().toString());
-                            if(r.getClass() == LabelNew.class) { // composition
-                                    Method get_cl = r.getClass().getDeclaredMethod("getCl");
-                                    Class clazzz = (Class) get_cl.invoke(r);
-                                    constructor = clazzz.getConstructor();
-                                    Object inst = constructor.newInstance();
-                                    clazzz.cast(inst);
-                                    if(inst == null) System.out.println("cant create obj");
-                                    //инициализ-ть объект внутренний
-                                    ArrayList<Method> resul = new ArrayList<>();
-                                    Collections.addAll(resul, clazzz.getDeclaredMethods());
-                                    for (Method t : resul) {
-                                        if (t.isAnnotationPresent(RusName.class)) {
-                                            for (Control s : rlt) {
-                                                System.out.println(r.getClass().toString());
-                                                if (t.getAnnotation(RusName.class).r_name().equals("Уст" + s.getType())) {
-                                                    t.invoke(inst, s.getVal());
-                                                }
-                                            }
+                            if (r.getClass() == LabelNew.class) { // composition
+                                Class clazzz = r.getCl();
+                                constructor = clazzz.getConstructor();
+                                Object inst = constructor.newInstance();
+                                clazzz.cast(inst);
+                                ArrayList<Method> compMethodsList = new ArrayList<>();
+                                Collections.addAll(compMethodsList, clazzz.getDeclaredMethods());
+                                for (Method t : compMethodsList) {
+                                    for (Control s : controlsList) {
+                                        if (t.getName().equals("set" + s.getType())) {
+                                            t.invoke(inst, s.getVal());
                                         }
                                     }
-                                Method set_obj = instance.getClass().getDeclaredMethod("set"+r.getType(), new Class[]{clazzz});
-                                set_obj.invoke(instance, inst);
-                                Method get_obj = instance.getClass().getDeclaredMethod("get"+r.getType());
-                                if(get_obj.invoke(instance) != null) System.out.println("+ ref");
                                 }
+                                r.setObj(inst);
+                            }
                         }
-                        for (Method m : res) {
-                            if (m.isAnnotationPresent(RusName.class)) {
-                                for (Control r : rlt) {
-
-                                    if (m.getAnnotation(RusName.class).r_name().equals("Уст" + r.getType())) {
-                                        System.out.println("Попытка уст "+r.getType());
-                                        System.out.println(r.getVal());
-                                        m.invoke(instance, r.getVal());
-                                        if(m.getAnnotation(RusName.class).r_name().equals("УстНазвание") && r.getVal().equals("")) {
-                                            m.invoke(instance, "Unnamed");
-                                            obj_name = "Unnamed";
-                                        }
-                                        //r.setVal("Yes");
-                                    }
+                        for (Method m : methodList) {
+                            for (Control r : controlsList) {
+                                if (m.getName().equals("set" + r.getType())) {
+                                    m.invoke(instance, r.getVal());
                                 }
                             }
                         }
-                    obj_list.add(new Obj(obj_name, instance.getClass().getAnnotation(RusName.class).r_name(),instance, instance.getClass().toString()));
-                    stage.close();
-                        } catch (ClassCastException el) {
-                            System.out.println("Can't cast!");
-                        }
 
-                        //System.out.println(instance.getClass().toString());
-                    } catch (NoSuchMethodException|InstantiationException|IllegalAccessException|InvocationTargetException l) {
-                        l.printStackTrace();
+                        obj_list.add(new Obj(obj_name, instance.getClass().getAnnotation(RusName.class).r_name(), instance, instance.getClass()));
+                        stage.close();
+                    } catch (NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException l) {
+                        System.out.println("Reflection exception!");
                     }
                 }
             });
+
             HBox hb = new HBox();
             hb.setAlignment(Pos.CENTER);
-            hb.getChildren().add(btn_OK);
+            hb.getChildren().add(btnCreate);
             vb.getChildren().add(hb);
-
-                stage.setScene(new Scene(vb, 400,700));
-
-
-
-
-                stage.show();
+            stage.setScene(new Scene(vb, WIDTH, HEIGHT));
+            stage.show();
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            System.out.println("Class not found!");
         }
     }
 
+    void generateControls(VBox vbox, List<Control> controlList, ArrayList<Field> fieldList, Object object, Class objClass) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Class<?> objectClass = objClass;
+        for (Field field : fieldList) {
+            String controlName, controlType;
+            //Текстовое поле
+            if (field.getType() == String.class) {
+                controlType = field.getName();
+                controlName = field.getAnnotation(RusName.class).r_name();
+                String prompt = "";
+                if (object != null) {
+                    Method get_f = objClass.getMethod("get" + controlType);
+                    prompt = (String) get_f.invoke(object);
+                }
+                generateTxtField(vbox, controlList, controlName, controlType, prompt);
+            }
+            //Целочисленное поле
+            if (field.getType() == int.class) {
+                controlType = field.getName();
+                controlName = field.getAnnotation(RusName.class).r_name();
+                Integer prompt = 0;
+                if (object != null) {
+                    Method get_f = objClass.getMethod("get" + controlType);
+                    prompt = (Integer) get_f.invoke(object);
+                }
+                generateTxtField(vbox, controlList, controlName, controlType, prompt);
+            }
+            //Вещественное поле
+            if (field.getType() == float.class) {
+                controlType = field.getName();
+                controlName = field.getAnnotation(RusName.class).r_name();
+                Float prompt = (float) 0;
+                if (object != null) {
+                    Method getterMethod = objClass.getMethod("get" + controlType);
+                    prompt = (Float) getterMethod.invoke(object);
+                }
+                generateTxtField(vbox, controlList, controlName, controlType, prompt);
+            }
+            //Перечисление(enum)
+            if (field.getType().isEnum()) {
+                controlType = field.getName();
+                controlName = field.getAnnotation(RusName.class).r_name();
+                Label lbl_num = new Label(controlName);
+                vbox.getChildren().add(lbl_num);
+                ArrayList<Field> en_flds = new ArrayList<>();
+                Collections.addAll(en_flds, field.getType().getFields());
+                String resultl = "";
+                if (object != null) {
+                    Method get_f = objClass.getMethod("get" + field.getName());
+                    resultl = (String) get_f.invoke(object);
+                }
+                // list of fields-constants declared annotations
+                ArrayList<String> arr = new ArrayList<>();
+                Object ill = null;
+                for (Field fld : en_flds) {
+                    arr.add(fld.getAnnotation(RusName.class).r_name());
+                    if (fld.getName().equals(resultl) && object != null)
+                        ill = fld.getAnnotation(RusName.class).r_name();
+                }
+                ChoiceBoxNew chBox = new ChoiceBoxNew(FXCollections.observableArrayList(arr), controlType, ill, en_flds);
+                controlList.add(chBox);
+                vbox.getChildren().add(chBox);
+            }
+            //Объект(композиция)
+            if (Composition.class.isAssignableFrom(field.getType())) {
+                Separator sp1 = new Separator(Orientation.HORIZONTAL);
+                vbox.getChildren().add(sp1);
+                ArrayList<Field> comp_fields = new ArrayList<>();
+                Collections.addAll(comp_fields, field.getType().getDeclaredFields());
+                controlName = field.getAnnotation(RusName.class).r_name();
+                controlType = field.getName();
+                LabelNew lbl_num = new LabelNew(controlName, field.getType(), controlType);
+                controlList.add(lbl_num);
+                HBox hb = new HBox();
+                hb.setAlignment(Pos.CENTER);
+                hb.getChildren().add(lbl_num);
+                vbox.getChildren().add(hb);
+                Object compObject = null;
+                Class compClass = null;
+
+                if (object != null) {
+                    compClass = field.getType();
+                    Method get_comp = object.getClass().getMethod("get" + field.getName());
+                    compObject = get_comp.invoke(object);//get comp obj-> res
+                    compClass.cast(compObject);
+                    lbl_num.setObj(compObject);
+                }
+
+                generateControls(vbox, controlList, comp_fields, compObject, compClass);
+                Separator sp2 = new Separator(Orientation.HORIZONTAL);
+                vbox.getChildren().add(sp2);
+            }
+            //Выбор(логическое поле)
+            if ((field.getType() == Boolean.class)) {
+                controlName = field.getAnnotation(RusName.class).r_name();
+                controlType = field.getName();
+                Boolean res = false;
+                if (object != null) {
+                    Method get_f = objClass.getMethod("get" + field.getName());
+                    res = (Boolean) get_f.invoke(object);
+                }
+                CheckBoxNew ch_b = new CheckBoxNew(controlName, controlType, Boolean.valueOf(res));
+                vbox.getChildren().add(ch_b);
+                controlList.add(ch_b);
+            }
+        }
+    }
+
+    private void generateTxtField(VBox vb, List<Control> controlList, String title, String type, Object prompt) {
+        TextFieldNew textField = null;
+        Label label = new Label(title);
+        vb.getChildren().add(label);
+        if (prompt.getClass() == String.class) {
+            textField = new TextFieldNew((String) prompt, type);
+        } else {
+            if (prompt.getClass() == Integer.class) {
+                textField = new TextFieldNew((int) prompt, type);
+            } else {
+                if (prompt.getClass() == Float.class) {
+                    textField = new TextFieldNew((float) prompt, type);
+                }
+            }
+        }
+        controlList.add(textField);
+        vb.getChildren().add(textField);
+    }
+
     //Searching in HM
-    String Func(HashMap<String, String> HM, String K) {
+    private String Func(HashMap<String, String> HM, String K) {
         for (Map.Entry entry : HM.entrySet()) {
             if (entry.getKey().equals(K)) {
                 return entry.getValue().toString();
@@ -1088,7 +464,78 @@ public class Controller {
         return "";
     }
 
+    //Initializing HashMap and filling ComboBox
+    private void createHashMap(HashMap<String, String> typesMap, ComboBox<String> comboBox) {
+        typesMap.put("Лазерный тир", "laser_shoot");
+        typesMap.put("Пневманический тир", "pnum_shoot");
+        typesMap.put("Теннисный корт", "tennis_cort");
+        typesMap.put("Бассейн", "pool");
+        typesMap.put("Легкоатлетический стадион", "athlete_stadium");
+        typesMap.put("Футбольный стадион", "football_stadium");
+        comboBox.setItems(FXCollections.observableArrayList(types_map.keySet()));
+        comboBox.getSelectionModel().select(0);
+    }
 
+    private void addObjects() {
+        //Поле
+        field myField = new field();
+        myField.setgr_type("natural");
+        myField.setfence(true);
 
+        //Ворота
+        gate Gates = new gate();
+        Gates.setheight("50");
+        Gates.setwidth("100");
+        Gates.setmobility(true);
 
+        //Стадион
+        football_stadium FS = new football_stadium();
+        FS.setpl_field(myField);
+        FS.setpl_gate(Gates);
+        FS.setname("Лужники");
+        FS.setteam("Спартак");
+        FS.setcapacity("200000");
+        FS.setfl_amount("10");
+        FS.setvip(false);
+        FS.setlight_type("synthetic");
+        FS.setlocation("Россия, Москва");
+        FS.setparking("100000");
+
+        //элемент таблицы
+        Obj itemFootStadium = new Obj(FS.getname(), "Футбольный стадион", FS, FS.getClass());
+        obj_list.add(itemFootStadium);
+
+        //Сектор трека
+        track Track = new track();
+        Track.setamount("greater_five");
+        Track.settr_length("100");
+
+        //Атлетический стадион
+        athlete_stadium newAthleteSt = new athlete_stadium();
+        newAthleteSt.settrack_sector(Track);
+        newAthleteSt.setpit(true);
+        newAthleteSt.setcapacity("200000");
+        newAthleteSt.setfl_amount("5");
+        newAthleteSt.setlocation("Сен-Дени");
+        newAthleteSt.setlight_type("natural");
+        newAthleteSt.setname("Стад де Франс");
+
+        Obj itemAthlStadium = new Obj(newAthleteSt.getname(), "Атлетический стадион", newAthleteSt, newAthleteSt.getClass());
+        obj_list.add(itemAthlStadium);
+
+        //Бассейн
+        pool swPool = new pool();
+        swPool.setdes("natrium");
+        swPool.setdividers(false);
+        swPool.setcapacity("20000");
+        swPool.setfl_amount("8");
+        swPool.setlocation("Кипр");
+        swPool.setname("Four Seasons");
+        swPool.setlight_type("synthetic");
+
+        Obj itemPool = new Obj(swPool.getname(), "Бассейн", swPool, swPool.getClass());
+        obj_list.add(itemPool);
+
+        obj_table.setItems(obj_list);
+    }
 }

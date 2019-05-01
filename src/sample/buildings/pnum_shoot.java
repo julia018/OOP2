@@ -21,15 +21,16 @@ public class pnum_shoot extends shoot_range {
         return recoil;
     }
 
-    @RusName(r_name = "УстОтдача при выстреле")
     public void setrecoil(Boolean recoil) {
         this.recoil = recoil;
     }
 
-    @RusName(r_name = "УстВинтовки")
     public void setgun_type(String gun_type) {
         this.gun_type = gun_type;
     }
 
+    @Override
+    public void deleteObject() {
 
+    }
 }

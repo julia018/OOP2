@@ -3,21 +3,23 @@ package sample.buildings;
 import sample.Composition;
 import sample.RusName;
 
+import java.io.Serializable;
+
 @RusName(r_name = "Поле")
-public class field extends Composition {
+public class field implements Composition {
+
+    @RusName(r_name = "Газон")
+    private grass gr_type;
+
+    @RusName(r_name = "Ограждение")
+    private Boolean fence;
 
     public String getgr_type() {
         return gr_type.toString();
     }
 
-    @RusName(r_name = "УстГазон")
     public void setgr_type(String gr_t) {
-        if(gr_t.equals("Искусственный")) {
-            this.gr_type = grass.synthetic;
-        }
-        else {
-            this.gr_type = grass.natural;
-        }
+        this.gr_type = grass.valueOf(gr_t);
 
     }
 
@@ -25,7 +27,6 @@ public class field extends Composition {
         return fence;
     }
 
-    @RusName(r_name = "УстОграждение")
     public void setfence(Boolean fence) {
         this.fence = fence;
     }
@@ -37,9 +38,5 @@ public class field extends Composition {
         natural
     }
 
-    @RusName(r_name = "Газон")
-    private grass gr_type;
 
-    @RusName(r_name = "Ограждение")
-    private Boolean fence;
 }
